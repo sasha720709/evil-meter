@@ -5,7 +5,7 @@ import { loadConfig, DEFAULTS, CONFIG_FILE } from "../src/config.js";
 import { repoRoot, changesFromPushInput, changesFromLastCommit } from "../src/git.js";
 import { judge } from "../src/judge.js";
 import { install, uninstall } from "../src/hook.js";
-import { log, printResult, startSpinner, stopSpinner, red, yellow, dim, bold } from "../src/terminal.js";
+import { log, printResult, startMeter, stopMeter, red, yellow, dim, bold } from "../src/terminal.js";
 
 const HELP = `${bold("evil-meter")} — Claude measures how evil your push is.
 
@@ -30,18 +30,17 @@ function readStdin() {
 // Shared by `hook` and `check`: judge, show the meter, return whether the push may go ahead.
 async function run(changes, cfg) {
   const n = changes.commits.length;
-  startSpinner(`Measuring the evil of ${n} commit${n === 1 ? "" : "s"}…`);
+  startMeter(`Measuring the evil of ${n} commit${n === 1 ? "" : "s"}…`, cfg.threshold);
   let result;
   try {
     result = await judge(changes, cfg);
   } catch (err) {
-    stopSpinner();
+    stopMeter();
     const allowed = cfg.onError !== "block";
     log(`\n  ${yellow("⚠ Evil meter could not get a reading:")} ${err.message}`);
     log(`  ${allowed ? dim("Letting the push through (onError: allow).") : red("Blocking the push (onError: block).")}\n`);
     return allowed;
   }
-  stopSpinner();
   const allowed = result.score <= cfg.threshold;
   await printResult(result, cfg.threshold, allowed);
   return allowed;
@@ -56,9 +55,8 @@ async function main() {
   if (cmd === "demo") {
     const score = args[0] !== undefined ? Number(args[0]) : 83;
     const cfg = loadConfig(root);
-    startSpinner("Measuring evil (demo)…");
-    await new Promise((r) => setTimeout(r, Number(process.env.EVIL_METER_DEMO_MS) || 2000));
-    stopSpinner();
+    startMeter("Measuring evil (demo)…", cfg.threshold);
+    await new Promise((r) => setTimeout(r, Number(process.env.EVIL_METER_DEMO_MS) || 3000));
     const result = {
       score,
       title: score > cfg.threshold ? "Diabolical" : "Mostly Harmless",
@@ -121,7 +119,7 @@ async function main() {
 main().then(
   (code) => process.exit(code ?? 0),
   (err) => {
-    stopSpinner();
+    stopMeter();
     log(red(`evil-meter: ${err.message}`));
     // A broken meter should not hold pushes hostage unless configured to.
     const isHook = process.argv[2] === "hook";
