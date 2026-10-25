@@ -4,7 +4,6 @@ import path from "node:path";
 import { loadConfig, DEFAULTS, CONFIG_FILE } from "../src/config.js";
 import { repoRoot, changesFromPushInput, changesFromLastCommit } from "../src/git.js";
 import { judge } from "../src/judge.js";
-import { startPopup } from "../src/popup.js";
 import { install, uninstall } from "../src/hook.js";
 import { log, printResult, startSpinner, stopSpinner, red, yellow, dim, bold } from "../src/terminal.js";
 
@@ -14,7 +13,7 @@ const HELP = `${bold("evil-meter")} — Claude measures how evil your push is.
   evil-meter uninstall    remove it
   evil-meter init         write a ${CONFIG_FILE} with the defaults
   evil-meter check [rev]  judge one commit (default HEAD) without pushing
-  evil-meter demo [score] show the meter with a fake verdict (no Claude call)
+  evil-meter demo [score] show a fake verdict (no Claude call)
 
 Bypass once:  git push --no-verify   or   EVIL_METER_SKIP=1 git push`;
 
@@ -30,7 +29,6 @@ function readStdin() {
 
 // Shared by `hook` and `check`: judge, show the meter, return whether the push may go ahead.
 async function run(changes, cfg) {
-  const popup = cfg.popup === "off" ? null : await startPopup({ threshold: cfg.threshold, commits: changes.commits, mode: cfg.popup }).catch(() => null);
   const n = changes.commits.length;
   startSpinner(`Measuring the evil of ${n} commit${n === 1 ? "" : "s"}…`);
   let result;
@@ -41,13 +39,11 @@ async function run(changes, cfg) {
     const allowed = cfg.onError !== "block";
     log(`\n  ${yellow("⚠ Evil meter could not get a reading:")} ${err.message}`);
     log(`  ${allowed ? dim("Letting the push through (onError: allow).") : red("Blocking the push (onError: block).")}\n`);
-    await popup?.finish({ phase: "error", error: err.message, allowed });
     return allowed;
   }
   stopSpinner();
   const allowed = result.score <= cfg.threshold;
-  printResult(result, cfg.threshold, allowed);
-  await popup?.finish({ phase: "done", result, allowed });
+  await printResult(result, cfg.threshold, allowed);
   return allowed;
 }
 
@@ -60,14 +56,8 @@ async function main() {
   if (cmd === "demo") {
     const score = args[0] !== undefined ? Number(args[0]) : 83;
     const cfg = loadConfig(root);
-    const popup = await startPopup({
-      threshold: cfg.threshold,
-      mode: cfg.popup,
-      commits: [{ sha: "d3m0666", subject: "quick fix, don't look", author: "you" }],
-    });
-    if (cfg.popup === "off") log(dim(`Meter page: ${popup.url}`));
     startSpinner("Measuring evil (demo)…");
-    await new Promise((r) => setTimeout(r, Number(process.env.EVIL_METER_DEMO_MS) || 3500));
+    await new Promise((r) => setTimeout(r, Number(process.env.EVIL_METER_DEMO_MS) || 2000));
     stopSpinner();
     const result = {
       score,
@@ -80,8 +70,7 @@ async function main() {
       ],
     };
     const allowed = score <= cfg.threshold;
-    printResult(result, cfg.threshold, allowed);
-    await popup.finish({ phase: "done", result, allowed });
+    await printResult(result, cfg.threshold, allowed);
     return 0;
   }
 

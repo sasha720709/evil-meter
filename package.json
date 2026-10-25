@@ -8,8 +8,7 @@
   },
   "files": [
     "bin",
-    "src",
-    "ui"
+    "src"
   ],
   "engines": {
     "node": ">=18"

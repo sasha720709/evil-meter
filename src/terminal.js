@@ -36,10 +36,27 @@ export function stopSpinner() {
   }
 }
 
-export function printResult(result, threshold, allowed) {
+const meterLine = (score, threshold) =>
+  `  ${bold("☠ EVIL METER")}  ${meterBar(score, threshold)}  ${colorFor(score, threshold)(`${String(score).padStart(3)}/100`)} ${dim(`(limit ${threshold})`)}`;
+
+// Sweep the bar up to the score (with a little overshoot) like a needle settling.
+async function animateMeter(score, threshold) {
+  const steps = 24;
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const eased = 1 - Math.pow(1 - t, 3) + Math.sin(t * Math.PI) * 0.08;
+    const v = Math.max(0, Math.min(100, Math.round(score * eased)));
+    process.stderr.write(`\r${meterLine(v, threshold)}\x1b[K`);
+    await new Promise((r) => setTimeout(r, 30));
+  }
+  process.stderr.write(`\r${meterLine(score, threshold)}\x1b[K\n`);
+}
+
+export async function printResult(result, threshold, allowed) {
   const col = colorFor(result.score, threshold);
   log("");
-  log(`  ${bold("☠ EVIL METER")}  ${meterBar(result.score, threshold)}  ${col(`${result.score}/100`)} ${dim(`(limit ${threshold})`)}`);
+  if (tty) await animateMeter(result.score, threshold);
+  else log(meterLine(result.score, threshold));
   log(`  ${col(result.title)} ${dim("—")} ${result.roast}`);
   if (result.sins.length) {
     log("");

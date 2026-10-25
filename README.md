@@ -2,7 +2,7 @@
 
 A git pre-push hook that asks Claude **how evil your code is** before it reaches GitHub.
 
-Run `git push` and a speedometer pops up. The needle twitches while it measures, like fast.com does, then settles on a score from 0 to 100. If the score passes your evil threshold, the push is blocked. Every verdict comes with a villain-voiced roast and a list of your sins.
+Run `git push` and the meter measures your commits right in the terminal, then fills up to a score from 0 to 100. If the score passes your evil threshold, the push is blocked. Every verdict comes with a villain-voiced roast and a list of your sins.
 
 ```
   ☠ EVIL METER  [████████████████████████████|███████████]  99/100 (limit 70)
@@ -32,7 +32,16 @@ evil-meter install
 
 That's it. Your next `git push` gets measured.
 
-To see the meter without calling Claude, run `evil-meter demo` (or `evil-meter demo 12` for a clean verdict).
+To see what a verdict looks like without calling Claude, run `evil-meter demo` (or `evil-meter demo 12` for a clean one).
+
+## How the check works
+
+1. `git push` runs the hook before anything is sent to GitHub. Git tells the hook which commits are about to go out.
+2. The meter collects those commits: their messages, a list of changed files, and the diff.
+3. It sends them to Claude with instructions describing the evil scale below. Claude replies with a score, a verdict title, a roast, and a list of sins with points.
+4. If the score is above `threshold`, the hook exits with an error and git cancels the push. Otherwise the push goes ahead.
+
+The instructions Claude gets are in [`src/judge.js`](src/judge.js) (`SYSTEM_PROMPT`). Edit them to change what counts as evil.
 
 ## How it talks to Claude (and who pays)
 
@@ -41,9 +50,21 @@ You bring your own Claude access. There's no server and no subscription to this 
 | Option | Setup | Cost |
 |---|---|---|
 | **Claude Code** (easiest) | Have [Claude Code](https://claude.com/claude-code) installed and logged in | Uses your existing Claude plan |
-| **API key** | `export ANTHROPIC_API_KEY=sk-ant-...` | Pay per push. A typical push is about a cent or two with the default model, and a fraction of a cent with `"model": "claude-haiku-5-5"` |
+| **API key** | Create a key at [platform.claude.com](https://platform.claude.com), then set `ANTHROPIC_API_KEY` (see below) | Pay per push. A typical push is about a cent or two with the default model, and a fraction of a cent with `"model": "claude-haiku-5-5"` |
 
 To force one, set `"provider": "claude-code"` or `"provider": "api"` in the config.
+
+Setting the API key so git hooks can see it:
+
+```bash
+# macOS / Linux: add to ~/.bashrc or ~/.zshrc
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+```powershell
+# Windows (then open a new terminal)
+setx ANTHROPIC_API_KEY "sk-ant-..."
+```
 
 ## What gets sent
 
@@ -59,12 +80,11 @@ Run `evil-meter init` to create `.evilmeter.json` in your repo root:
 | `provider` | `"auto"` | `"auto"`, `"api"` or `"claude-code"` |
 | `model` | `"claude-opus-5-5"` | Model for the API provider |
 | `claudeCodeModel` | `null` | Model for the Claude Code provider (`null` = its default) |
-| `popup` | `"app"` | `"app"` (a small window), `"browser"` (a tab), or `"off"` (terminal only) |
 | `onError` | `"allow"` | If Claude can't be reached: `"allow"` or `"block"` the push |
 | `maxDiffChars` | `80000` | Diff size cap |
 | `exclude` | lockfiles, `*.min.js`, `*.map` | Globs never sent to Claude |
 
-Environment overrides: `EVIL_METER_THRESHOLD`, `EVIL_METER_PROVIDER`, `EVIL_METER_MODEL`, `EVIL_METER_POPUP`. When `CI` is set, the popup is switched off.
+Environment overrides: `EVIL_METER_THRESHOLD`, `EVIL_METER_PROVIDER`, `EVIL_METER_MODEL`.
 
 ## The scale
 
