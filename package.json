@@ -1,0 +1,34 @@
+{
+  "name": "evil-meter",
+  "version": "0.1.0",
+  "description": "A git pre-push hook that asks Claude how evil your code is, shows a speedometer, and blocks the push if it's too evil.",
+  "type": "module",
+  "bin": {
+    "evil-meter": "bin/evil-meter.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "ui"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "git",
+    "hook",
+    "pre-push",
+    "claude",
+    "code-review",
+    "fun"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sasha720709/evil-meter.git"
+  },
+  "homepage": "https://github.com/sasha720709/evil-meter#readme"
+}
